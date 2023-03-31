@@ -1,8 +1,16 @@
 import pandas as pd
+import numpy as np
+import panel as pn
+from bokeh.plotting import figure
+from bokeh.models import ColumnDataSource
+from bokeh.transform import linear_cmap
+from bokeh.palettes import Viridis256
+from bokeh.layouts import column
+from bokeh.models.widgets import Select
+from bokeh.plotting import figure
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 import hvplot.pandas
-import panel as pn
 import holoviews as hv
 import bokeh.models
 from bokeh.server.server import Server
@@ -10,14 +18,14 @@ from tornado.ioloop import IOLoop
 from bokeh.plotting import figure
 from bokeh.models import ColumnDataSource
 from bokeh.palettes import Category20
-from bokeh.io import show
-import pandas as pd
-import panel as pn
 import holoviews as hv
 from bokeh.transform import linear_cmap
 from bokeh.palettes import Viridis256
 from bokeh.models import ColumnDataSource
 from bokeh.plotting import figure
+from bokeh.transform import factor_cmap
+import numpy as np
+from bokeh.models.widgets import RadioButtonGroup
 
 #hv.extension('bokeh')
 data = pd.read_csv('StudentsPerformance.csv')
@@ -149,9 +157,9 @@ viz4.append(y_select)
 viz4.append(attr_selectlabel)
 viz4.append(swarmplot)
 
-
 # First dashboard with the four plots
 plots = pn.Column(pn.Row(viz4),
+                 
       pn.Row(viz3),
      pn.Row(viz2),
     pn.Row(viz1)
@@ -168,16 +176,39 @@ def switch_to_plots(event):
 analysis_button.on_click(switch_to_plots)
 
 # Second dashboard with machine learning algorithm results
-X = data[['math score', 'reading score']].values
-y = data['writing score'].values
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
-regressor = LinearRegression()
-regressor.fit(X_train, y_train)
-score = regressor.score(X_test, y_test)
+y = data[['math score','writing score', 'reading score']]
+X = ['gender', 'race/ethnicity', 'parental level of education', 'lunch', 'test preparation course']
+data_encode = pd.get_dummies(data, columns=X)
+
+# Display the encoded data
+print(data_encode.head())
+data_encoded = data_encode.values
+import param
+
+class CustomExample(param.Parameterized):
+    select_string = param.Selector(objects=['math score', 'writing score', 'reading score'],default='math score')
+
+select_string1 = CustomExample()
+
+pn.Param(select_string1.param, widgets={
+    'select_string': pn.widgets.RadioButtonGroup,
+})
+
+@pn.depends(select_string1.param.select_string)
+def regression(attr):
+        X_train, X_test, y_train, y_test = train_test_split(data_encoded, y[attr].values, test_size=0.2, random_state=0)
+        regressor = LinearRegression()
+        regressor.fit(X_train, y_train)
+        score = regressor.score(X_test, y_test)
+        return pn.panel(f"R-squared score: {score} pour l attribut  {attr}", align="center", width=800)
+viz6 = pn.Column()
+viz6.append(select_string1 )
+
+viz6.append(regression)
 
 results = pn.Column(
     pn.Row(pn.panel("Machine Learning Algorithm Results", align="center", width=800)),
-    pn.Row(pn.panel(f"R-squared score: {score}", align="center", width=800))
+    pn.Row(pn.Row(viz6))
 )
 
 # Set the switch button for the second dashboard
