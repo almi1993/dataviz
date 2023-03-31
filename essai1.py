@@ -16,6 +16,9 @@ import panel as pn
 import holoviews as hv
 from bokeh.transform import linear_cmap
 from bokeh.palettes import Viridis256
+from bokeh.models import ColumnDataSource
+from bokeh.plotting import figure
+
 #hv.extension('bokeh')
 data = pd.read_csv('StudentsPerformance.csv')
 data2 = pd.read_csv('StudentsPerformance.csv')
@@ -113,9 +116,43 @@ def update_dashboard(attr):
 
 # Add callback output to dashboard
 viz1.append(update_dashboard)
+y_select = pn.widgets.Select(name='Select score type', options=['math score', 'reading score', 'writing score'])
+
+attr_selectlabel = pn.widgets.Select(name='Select attribute', options=['gender', 'race/ethnicity', 'parental level of education', 'lunch', 'test preparation course'])
+@pn.depends(attr_selectlabel.param.value, y_select.param.value)
+
+
+def swarmplot(x,y):
+    # Group data by x column and sort by y
+    grouped_data = data2.groupby(x).apply(lambda x: x.sort_values(y)).reset_index(drop=True)
+
+    # Create a ColumnDataSource object
+    source = ColumnDataSource(grouped_data)
+
+    # Create the figure object
+    p = figure(plot_width=800, plot_height=400, x_range=list(grouped_data[x].unique()))
+
+    # Add the swarmplot points
+    p.circle(x=x, y=y, source=source, size=10, alpha=0.5)
+
+    # Add axis labels and title
+    p.xaxis.axis_label = x
+    p.yaxis.axis_label = y
+    p.title.text = f'Swarmplot of {y} by {x}'
+
+    return p
+#def update_swarmplot(attr_select2, y_select):
+   # return swarmplot(attr_select2, y_select)
+viz4 = pn.Column()
+viz4.append(y_select)
+
+viz4.append(attr_selectlabel)
+viz4.append(swarmplot)
+
 
 # First dashboard with the four plots
-plots = pn.Column( pn.Row(viz3),
+plots = pn.Column(pn.Row(viz4),
+      pn.Row(viz3),
      pn.Row(viz2),
     pn.Row(viz1)
     #pn.Row(data.hvplot.bar('gender', 'math score', groupby='test preparation course', height=100)),
